@@ -1,1 +1,4 @@
-{"id": "ed5887187c33", "text": "Use the 'scan' command to look for exits.", "source": "agent_chat", "ts": "2026-05-23T20:39:30.840714+00:00", "enabled": true, "tag": ""}
+{"id": "ed5887187c33", "text": "Use the 'exits' command to look for where to go next.", "source": "agent_chat", "ts": "2026-05-23T20:39:30.840714+00:00", "enabled": true, "tag": ""}
+{"id": "d6eb1a591c87", "text": "Use 'inv' to check inventory if consumption fails.", "source": "agent_chat", "ts": "2026-05-23T21:03:29.230612+00:00", "enabled": true, "tag": ""}
+{"id": "b2b2663a1501", "text": "The Hall of Bravery and Combat (west) is likely the warrior guild based on the description of trainees and weapons.", "source": "agent_chat", "ts": "2026-05-23T21:04:06.528502+00:00", "enabled": true, "tag": ""}
+{"id": "5c2496a49da9", "text": "use north, south, east, west, up, down to move", "source": "operator", "ts": "2026-05-23T21:08:24.573930+00:00", "enabled": true, "tag": ""}

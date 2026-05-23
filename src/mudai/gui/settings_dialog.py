@@ -1,7 +1,7 @@
 """Settings dialog: connection, model, sampling, context window, autonomy."""
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt  # noqa: F401  (re-exported for callers)
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -121,10 +121,31 @@ class SettingsDialog(QDialog):
         self.min_interval_spin.setSingleStep(100)
         self.min_interval_spin.setValue(cfg.agent.min_command_interval_ms)
         self.min_interval_spin.setSuffix(" ms")
+        self.examples_k_spin = QSpinBox()
+        self.examples_k_spin.setRange(0, 10)
+        self.examples_k_spin.setValue(cfg.agent.experience_examples_k)
+        self.examples_k_spin.setToolTip(
+            "How many past successful decisions to inject as in-context"
+            " examples on every decision. 0 disables experience replay."
+        )
+        self.reflect_every_spin = QSpinBox()
+        self.reflect_every_spin.setRange(0, 1000)
+        self.reflect_every_spin.setValue(cfg.agent.reflect_every_n_decisions)
+        self.reflect_every_spin.setToolTip(
+            "Auto-run a reflection pass every N approved decisions (LLM"
+            " distills durable lessons into permanent memory). 0 disables."
+        )
+        self.reflect_on_disc_chk = QCheckBox(
+            "Reflect automatically when MUD disconnects"
+        )
+        self.reflect_on_disc_chk.setChecked(cfg.agent.reflect_on_disconnect)
         agent_form.addRow("Default autonomy:", self.auto_send_chk)
         agent_form.addRow("", self.auto_load_chk)
         agent_form.addRow("", self.proactive_chk)
         agent_form.addRow("Min interval between auto-sends:", self.min_interval_spin)
+        agent_form.addRow("In-context examples (K):", self.examples_k_spin)
+        agent_form.addRow("Auto-reflect every N decisions:", self.reflect_every_spin)
+        agent_form.addRow("", self.reflect_on_disc_chk)
         tabs.addTab(agent_tab, "Agent")
 
         buttons = QDialogButtonBox(
@@ -137,7 +158,6 @@ class SettingsDialog(QDialog):
         layout.addWidget(tabs)
         layout.addWidget(buttons)
         self.setMinimumWidth(520)
-        del Qt  # appease unused-import
 
     def apply_to(self, cfg: AppConfig) -> None:
         cfg.mud.host = self.host_edit.text().strip() or cfg.mud.host
@@ -163,3 +183,6 @@ class SettingsDialog(QDialog):
         cfg.agent.auto_load_model_on_start = self.auto_load_chk.isChecked()
         cfg.agent.proactive_decisions = self.proactive_chk.isChecked()
         cfg.agent.min_command_interval_ms = self.min_interval_spin.value()
+        cfg.agent.experience_examples_k = self.examples_k_spin.value()
+        cfg.agent.reflect_every_n_decisions = self.reflect_every_spin.value()
+        cfg.agent.reflect_on_disconnect = self.reflect_on_disc_chk.isChecked()

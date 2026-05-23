@@ -15,10 +15,22 @@ def mono_font() -> QFont:
     """Lazily construct the monospace font (requires QApplication to exist)."""
     global _MONO
     if _MONO is None:
-        f = QFont("Cascadia Mono", 10)
-        if not f.exactMatch():
-            f = QFont("Consolas", 10)
-        _MONO = f
+        # Try a curated list of terminal-grade fonts; fall back to the system
+        # monospace via StyleHint + fixed-pitch if none are installed.
+        for family in ("Cascadia Mono", "Consolas", "Courier New", "Monospace"):
+            f = QFont(family, 10)
+            if f.exactMatch():
+                f.setStyleHint(QFont.StyleHint.Monospace)
+                f.setFixedPitch(True)
+                _MONO = f
+                break
+        else:
+            f = QFont()
+            f.setStyleHint(QFont.StyleHint.Monospace)
+            f.setFamily("monospace")
+            f.setFixedPitch(True)
+            f.setPointSize(10)
+            _MONO = f
     return _MONO
 
 
@@ -27,13 +39,22 @@ class MudOutputView(QTextBrowser):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setFont(mono_font())
+        f = mono_font()
+        self.setFont(f)
+        # Ensure the document itself defaults to the monospace font so any
+        # whitespace runs (rendered as &nbsp;) keep terminal alignment.
+        self.document().setDefaultFont(f)
         self.setOpenExternalLinks(False)
         self.setReadOnly(True)
         self.setUndoRedoEnabled(False)
         self.document().setMaximumBlockCount(5000)
+        # Tighten line spacing so multi-line ASCII art looks like a terminal.
         self.setStyleSheet(
-            "QTextBrowser { background-color: #0b0b0f; color: #d6d6d6; }"
+            "QTextBrowser {"
+            " background-color: #0b0b0f;"
+            " color: #d6d6d6;"
+            " font-family: 'Cascadia Mono','Consolas','Courier New',monospace;"
+            " }"
         )
 
     def append_mud(self, raw_text: str) -> None:
@@ -50,8 +71,14 @@ class MudOutputView(QTextBrowser):
         """Echo a locally-sent line (yours or the agent's) into the transcript."""
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
-        safe = text.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
-        cursor.insertHtml(f'<span style="color:{color}">&gt; {safe}</span><br>')
+        safe = (
+            text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace(" ", "&nbsp;")
+                .replace("\n", "<br>")
+        )
+        cursor.insertHtml(f'<span style="color:{color}">&gt;&nbsp;{safe}</span><br>')
         self.setTextCursor(cursor)
         sb = self.verticalScrollBar()
         if sb is not None:

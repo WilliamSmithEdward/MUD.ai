@@ -34,7 +34,10 @@ class LLMConfig(BaseModel):
     top_p: float = 0.9
     top_k: int = 40
     repeat_penalty: float = 1.05
-    max_decision_tokens: int = 512
+    # Qwen3 emits long <think> blocks before the COMMAND: line; budget must
+    # accommodate that or the response will be truncated mid-think and
+    # produce an empty parsed command (the loop then stalls on empties).
+    max_decision_tokens: int = 2048
     max_chat_tokens: int = 1024
     # Recent transcript budget (tokens). Older lines are dropped from prompt.
     transcript_token_budget: int = 6000
@@ -61,24 +64,40 @@ class AgentConfig(BaseModel):
     proactive_decisions: bool = True
     # Hard cap: even on auto-send, never issue commands faster than this (ms).
     min_command_interval_ms: int = 1500
+    # Number of past successful decisions to inject into the prompt as in-context
+    # examples. 0 disables experience replay. This is the primary mechanism by
+    # which the agent gets better at playing the MUD as you accumulate sessions.
+    experience_examples_k: int = 3
+    # Auto-reflect every N approved decisions (LLM reads recent traces and
+    # distills durable lessons into permanent memory). 0 disables auto-reflect.
+    reflect_every_n_decisions: int = 30
+    # Also reflect automatically when the MUD connection closes.
+    reflect_on_disconnect: bool = True
     system_prompt: str = (
         "You are an autonomous player of a text-based multi-user dungeon (MUD).\n"
-        "You read the most recent MUD output and decide ONE command to send next.\n"
+        "You read the most recent MUD output and decide what command(s) to send next.\n"
         "Rules:\n"
         "  1. Think briefly (1-4 short sentences) about the current room, your goals,"
         " threats, and what to do next.\n"
         "  2. Then on a NEW line output exactly: COMMAND: <the raw text to send>\n"
-        "  3. The command must be a single MUD command. No quotes, no markdown.\n"
-        "  4. If unsure, prefer safe info commands like 'look', 'score', 'inventory',"
+        "  3. You MAY chain a short sequence (up to 4) by emitting multiple"
+        " 'COMMAND: <cmd>' lines, one per line, in the order you want them"
+        " sent. Each is a separate command sent to the MUD with a small delay"
+        " between them; do NOT combine multiple commands into one line.\n"
+        "  4. Each command must be a single MUD command. No quotes, no markdown.\n"
+        "  5. Only chain commands when the result of the first is predictable"
+        " (e.g. 'open door' then 'north', or 'get all' then 'inventory'). If"
+        " you need to SEE what happened before deciding, emit only ONE command.\n"
+        "  6. If unsure, prefer safe info commands like 'look', 'score', 'inventory',"
         " or 'help <topic>'.\n"
-        "  5. Never invent room contents that were not in the MUD output.\n"
-        "  6. Follow any STEERING NOTES from the operator strictly; they override"
+        "  7. Never invent room contents that were not in the MUD output.\n"
+        "  8. Follow any STEERING NOTES from the operator strictly; they override"
         " your own plans.\n"
-        "  7. If you are genuinely uncertain and need operator guidance, you MAY"
+        "  9. If you are genuinely uncertain and need operator guidance, you MAY"
         " add ONE extra line of the form 'QUESTION: <your question>' in addition"
         " to (not instead of) the COMMAND line. The operator will see it in a"
         " side-chat panel and may answer.\n"
-        "  8. If you discover a DURABLE fact you should always remember (a rule,"
+        "  10. If you discover a DURABLE fact you should always remember (a rule,"
         " a name, a location, a danger), you MAY add a line of the form"
         " 'REMEMBER: <one concise fact>'. It will be saved to permanent memory"
         " and shown to you on every future decision. Use sparingly.\n"

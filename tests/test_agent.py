@@ -39,6 +39,25 @@ def test_parse_decision_empty_when_no_content() -> None:
     assert d.command == ""
 
 
+def test_parse_decision_chains_multiple_command_lines() -> None:
+    raw = (
+        "Need to open the door, walk through, then look.\n"
+        "COMMAND: open door\n"
+        "COMMAND: north\n"
+        "COMMAND: look\n"
+    )
+    d = Agent.parse_decision(raw)
+    assert d.command == "open door ; north ; look"
+    assert Agent.split_commands(d.command) == ["open door", "north", "look"]
+
+
+def test_split_commands_handles_semicolons_newlines_and_quoting() -> None:
+    assert Agent.split_commands("look ; n ; `s`") == ["look", "n", "s"]
+    assert Agent.split_commands("a\nb\nc") == ["a", "b", "c"]
+    assert Agent.split_commands("") == []
+    assert Agent.split_commands("  ; ; ") == []
+
+
 def _make_agent() -> Agent:
     from pathlib import Path
 
