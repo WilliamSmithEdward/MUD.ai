@@ -107,6 +107,15 @@ class SettingsDialog(QDialog):
         self.auto_send_chk.setChecked(cfg.agent.auto_send)
         self.auto_load_chk = QCheckBox("Auto-load model on startup")
         self.auto_load_chk.setChecked(cfg.agent.auto_load_model_on_start)
+        self.proactive_chk = QCheckBox(
+            "Proactive decisions (keep thinking even when MUD is silent)"
+        )
+        self.proactive_chk.setToolTip(
+            "On: after every send/reject the agent schedules its own next "
+            "decision via the idle timer. Off: decisions only fire when the "
+            "MUD sends new text (purely reactive)."
+        )
+        self.proactive_chk.setChecked(cfg.agent.proactive_decisions)
         self.min_interval_spin = QSpinBox()
         self.min_interval_spin.setRange(0, 30000)
         self.min_interval_spin.setSingleStep(100)
@@ -114,6 +123,7 @@ class SettingsDialog(QDialog):
         self.min_interval_spin.setSuffix(" ms")
         agent_form.addRow("Default autonomy:", self.auto_send_chk)
         agent_form.addRow("", self.auto_load_chk)
+        agent_form.addRow("", self.proactive_chk)
         agent_form.addRow("Min interval between auto-sends:", self.min_interval_spin)
         tabs.addTab(agent_tab, "Agent")
 
@@ -151,4 +161,5 @@ class SettingsDialog(QDialog):
 
         cfg.agent.auto_send = self.auto_send_chk.isChecked()
         cfg.agent.auto_load_model_on_start = self.auto_load_chk.isChecked()
+        cfg.agent.proactive_decisions = self.proactive_chk.isChecked()
         cfg.agent.min_command_interval_ms = self.min_interval_spin.value()

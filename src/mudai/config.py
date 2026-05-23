@@ -47,13 +47,18 @@ class MudConfig(BaseModel):
     port: int = 2700
     encoding: str = "utf-8"
     # Idle ms after last MUD output before the agent is allowed to act.
-    decision_idle_ms: int = 800
+    # Acts as a debounce window: every new MUD chunk restarts the timer.
+    decision_idle_ms: int = 2500
     auto_connect_on_start: bool = False
 
 
 class AgentConfig(BaseModel):
     auto_send: bool = False
-    auto_load_model_on_start: bool = True
+    auto_load_model_on_start: bool = False
+    # If True (default), the agent schedules its own next decision after each
+    # command send/reject so the loop is self-sustaining even when the MUD is
+    # silent. If False, decisions only fire after MUD output (reactive mode).
+    proactive_decisions: bool = True
     # Hard cap: even on auto-send, never issue commands faster than this (ms).
     min_command_interval_ms: int = 1500
     system_prompt: str = (

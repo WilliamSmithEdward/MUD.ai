@@ -234,13 +234,11 @@ class MainWindow(QMainWindow):
 
         tb.addSeparator()
 
-        act_load_model = QAction("Load model", self)
-        act_load_model.triggered.connect(self._on_load_model_clicked)
-        tb.addAction(act_load_model)
-
-        act_unload_model = QAction("Unload model", self)
-        act_unload_model.triggered.connect(self._on_unload_model_clicked)
-        tb.addAction(act_unload_model)
+        self.act_llm_toggle = QAction("LLM: OFF", self)
+        self.act_llm_toggle.setCheckable(True)
+        self.act_llm_toggle.setChecked(False)
+        self.act_llm_toggle.toggled.connect(self._on_llm_toggle)
+        tb.addAction(self.act_llm_toggle)
 
         tb.addSeparator()
 
@@ -336,6 +334,7 @@ class MainWindow(QMainWindow):
         self.agent.backend = self.backend
         self.chat.backend = self.backend
         self.reasoning_view.append_note("[llm] loading model ...", color="#aaa")
+        self._refresh_llm_toggle(loading=True)
         asyncio.ensure_future(self._load_model_task())
 
     async def _load_model_task(self) -> None:
@@ -344,14 +343,44 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.reasoning_view.append_note(f"[llm] load failed: {e}", color="#f88")
             QMessageBox.critical(self, "Model load failed", str(e))
+            self._refresh_llm_toggle()
             return
         self.reasoning_view.append_note("[llm] model loaded", color="#8f8")
+        self._refresh_llm_toggle()
         self._update_status_bar()
 
     def _on_unload_model_clicked(self) -> None:
         self.backend.unload()
         self.reasoning_view.append_note("[llm] model unloaded", color="#aaa")
+        self._refresh_llm_toggle()
         self._update_status_bar()
+
+    def _on_llm_toggle(self, checked: bool) -> None:
+        # Reflect actual state in label; perform load/unload.
+        if checked:
+            if not self.backend.loaded:
+                self._on_load_model_clicked()
+            else:
+                self._refresh_llm_toggle()
+        else:
+            if self.backend.loaded:
+                self._on_unload_model_clicked()
+            else:
+                self._refresh_llm_toggle()
+
+    def _refresh_llm_toggle(self, loading: bool = False) -> None:
+        btn = self.act_llm_toggle
+        btn.blockSignals(True)
+        if loading:
+            btn.setChecked(True)
+            btn.setEnabled(False)
+            btn.setText("LLM: loading...")
+        else:
+            on = self.backend.loaded
+            btn.setChecked(on)
+            btn.setEnabled(True)
+            btn.setText("LLM: ON" if on else "LLM: OFF")
+        btn.blockSignals(False)
 
     def _on_settings_clicked(self) -> None:
         dlg = SettingsDialog(self.cfg, self)
@@ -677,12 +706,19 @@ class MainWindow(QMainWindow):
         self._send_command(text, source="agent")
         self._finalize_trace(text, approved=True)
         self.proposed_edit.clear()
+        # Proactive mode: schedule a follow-up decision even if the MUD is
+        # silent. Any incoming MUD text simply restarts this same timer, so
+        # the debounce semantics still apply when the MUD is talking.
+        if self.cfg.agent.proactive_decisions:
+            self._idle_timer.start(max(50, self.cfg.mud.decision_idle_ms))
 
     def _on_reject_proposed(self) -> None:
         text = self.proposed_edit.text().strip()
         self.reasoning_view.append_note(f"[rejected] {text!r}", color="#f88")
         self._finalize_trace(text, approved=False)
         self.proposed_edit.clear()
+        if self.cfg.agent.proactive_decisions:
+            self._idle_timer.start(max(50, self.cfg.mud.decision_idle_ms))
 
     def _finalize_trace(self, command: str, approved: bool) -> None:
         if self._pending_decision is None or self._pending_last_log is None:
