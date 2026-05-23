@@ -1,0 +1,6 @@
+# llama-cpp-python is installed separately with the CUDA wheel index - see README.
+PyQt6>=6.7
+qasync>=0.27
+telnetlib3>=2.0.4
+huggingface_hub>=0.24
+pydantic>=2.7
